@@ -126,11 +126,11 @@ mSums = ["Sums"]
 
 # Deal with ATAC overrides
 if args.atac:
-    if args.bufferPos > 0:
+    if args.pos > 0:
         bufferPos = args.pos
     else:
         bufferPos = 4
-    if args.bufferNeg > 0:
+    if args.neg > 0:
         bufferNeg = args.neg
     else:
         bufferNeg = -5

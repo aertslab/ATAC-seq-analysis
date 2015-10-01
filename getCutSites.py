@@ -126,11 +126,11 @@ mSums = ["Sums"]
 
 # Deal with ATAC overrides
 if args.atac:
-    if args.bufferPos > 0:
+    if args.pos > 0:
         bufferPos = args.pos
     else:
         bufferPos = 4
-    if args.bufferNeg > 0:
+    if args.neg > 0:
         bufferNeg = args.neg
     else:
         bufferNeg = -5
@@ -531,7 +531,7 @@ if args.sumsOnly:
     xT = []
     for x in range(-(int(args.size))-1, int(args.size), 1):
         xT.append(x)
-    p = plt.plot(xT, mSums[1:-1], c='black')
+    plt.plot(xT, mSums[1:-1], c='black')
     plt.ylabel('Aggregate reads')
     plt.xlabel('Position')
     plt.xlim((-(int(args.size)), (int(args.size))))

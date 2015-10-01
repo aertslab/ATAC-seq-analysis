@@ -1,4 +1,11 @@
-#!/usr/bin/python
+#!/usr/bin/env python
+
+import pysam
+import argparse
+import sys
+import time
+import collections as c
+import math
 
 __author__ = 'kdavie'
 
@@ -9,14 +16,6 @@ based off of a bed input. When the matrix option is used, a matrix will
 be created based on the defined parameters, this can easily be used to
 create heatmaps and aggregation plots.
 """
-
-import pysam
-import argparse
-import sys
-import time
-import collections as c
-import subprocess
-import math
 
 # Help and arguments parser
 parser = argparse.ArgumentParser(description='Takes a sam or bam file as an input and outputs a 6 column bed file '
@@ -50,6 +49,7 @@ parser.add_argument('--centipede', action='store_true', help='Required for a cor
                     default=False)
 parser.add_argument('-smooth', metavar='bp', type=int, help='Smoothening to apply in bp, only for cutsites', default=1)
 parser.add_argument('-binbed', action='store_true', help='Process bed as binary?')
+parser.add_argument('--sumsOnly', action='store_true', help='Only provide the sums of the matrix')
 args = parser.parse_args()
 
 if args.debug:
@@ -122,6 +122,7 @@ bufferPos = 0
 bufferNeg = 0
 bedLen = 0
 zerr = 0
+mSums = ["Sums"]
 
 # Deal with ATAC overrides
 if args.atac:
@@ -150,9 +151,9 @@ def getsite(i):
                 " seconds.")
                 start_time = time.time()
         except ZeroDivisionError:
-                if zerr == 0:
-                    print("Too few regions, will not report progress")
-                    zerr = 1
+            if zerr == 0:
+                print("Too few regions, will not report progress")
+                zerr = 1
 
         # Save read names for later
         if str(i.qname) not in pairedName:
@@ -258,9 +259,9 @@ def makematrix(region):
                 " seconds.")
                 start_time = time.time()
         except ZeroDivisionError:
-                if zerr == 0:
-                    print("Too few regions, will not report progress")
-                    zerr = 1
+            if zerr == 0:
+                print("Too few regions, will not report progress")
+                zerr = 1
         # Pre-fill the counter with all base pairs and if centipede support is needed, make two counters
         # Centipede requires two matrices side by side, one with counts from positive strand reads and the other with
         # Negative strand reads.
@@ -470,22 +471,31 @@ def makematrix(region):
 
         # Finish the line with a total count and print
 
-        matrixline.append(totalreads)
-        if args.centipede:
-            if len(matrixline) == ((args.size * 4) + 4):
-                f.write('\t'.join(map(str, matrixline)) + '\n')
-            elif not args.quiet:
-                # TODO: Track down this bug!
-                print(str(region) + "Line was too short:- " + str(((args.size * 4) + 4))) + " > " + str(len(matrixline))
-                print("Please e-mail the command used and these files to kristofer.davie@kuleuven.be")
+        if args.sumsOnly:
+            matrixline.append(totalreads)
+            try:
+                for i in range(1, len(matrixline)):
+                    mSums[i] = mSums[i] + float(matrixline[i])
+            except IndexError:
+                for i in range(1, len(matrixline)):
+                    mSums.append(float(matrixline[i]))
         else:
-            if len(matrixline) == ((args.size * 2) + 3):
-                f.write('\t'.join(map(str, matrixline)) + '\n')
-            elif not args.quiet:
-                print(str(region) + "Line was too short:- " + str(((args.size * 2) + 3))) + " > " + str(len(matrixline))
-                print("Please e-mail the command used and these files to kristofer.davie@kuleuven.be")
-                if args.debug:
-                    print(matrixline)
+            matrixline.append(totalreads)
+            if args.centipede:
+                if len(matrixline) == ((args.size * 4) + 4):
+                    f.write('\t'.join(map(str, matrixline)) + '\n')
+                elif not args.quiet:
+                    # TODO: Track down this bug!
+                    print(str(region) + "Line was too short:- " + str(((args.size * 4) + 4))) + " > " + str(len(matrixline))
+                    print("Please e-mail the command used and these files to kristofer.davie@kuleuven.be")
+            else:
+                if len(matrixline) == ((args.size * 2) + 3):
+                    f.write('\t'.join(map(str, matrixline)) + '\n')
+                elif not args.quiet:
+                    print(str(region) + "Line was too short:- " + str(((args.size * 2) + 3))) + " > " + str(len(matrixline))
+                    print("Please e-mail the command used and these files to kristofer.davie@kuleuven.be")
+                    if args.debug:
+                        print(matrixline)
 
 if not args.quiet:
     print("Beginning to process file")
@@ -504,7 +514,7 @@ if not args.matrix:
     end_time = time.time()
     if not args.quiet:
         print("Processed 100% (" + str(count) + " of " + str(totalLen) + " reads) in " + str(
-        end_time - start_time) + " seconds.")
+              end_time - start_time) + " seconds.")
 elif args.matrix:
     for line in b:
         bedLen += 1
@@ -514,6 +524,19 @@ elif args.matrix:
     for r in b:
         makematrix(r)
 
+if args.sumsOnly:
+    f.write('\t'.join(map(str, mSums)) + '\n')
+
+    import matplotlib.pyplot as plt
+    xT = []
+    for x in range(-(int(args.size))-1, int(args.size), 1):
+        xT.append(x)
+    p = plt.plot(xT, mSums[1:-1], c='black')
+    plt.ylabel('Aggregate reads')
+    plt.xlabel('Position')
+    plt.xlim((-(int(args.size)), (int(args.size))))
+    plt.axvline(x=0, ls='--', lw=1)
+    plt.savefig('.'.join([args.outputFile, 'pdf']), bbox_inches='tight')
 f.close()
 if not args.quiet and not args.matrix:
     print("Processing Finished")

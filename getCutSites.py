@@ -126,11 +126,11 @@ mSums = ["Sums"]
 
 # Deal with ATAC overrides
 if args.atac:
-    if args.pos > 0:
+    if args.bufferPos > 0:
         bufferPos = args.pos
     else:
         bufferPos = 4
-    if args.neg > 0:
+    if args.bufferNeg > 0:
         bufferNeg = args.neg
     else:
         bufferNeg = -5
@@ -475,10 +475,10 @@ def makematrix(region):
             matrixline.append(totalreads)
             try:
                 for i in range(1, len(matrixline)):
-                    mSums[i] = mSums[i] + float(matrixline[i])
+                    mSums[i] = mSums[i] + int(matrixline[i])
             except IndexError:
                 for i in range(1, len(matrixline)):
-                    mSums.append(float(matrixline[i]))
+                    mSums.append(int(matrixline[i]))
         else:
             matrixline.append(totalreads)
             if args.centipede:
